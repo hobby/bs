@@ -1,0 +1,7 @@
+# 
+# example host for bs.
+# 
+# format:
+# name <blank> ip <blank> port <blank> username <blank> password
+# 
+name 127.0.0.1 22 username password

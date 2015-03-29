@@ -1,0 +1,124 @@
+#!/bin/bash
+
+##########  settting #########
+CMD_GO=bs-go.sh
+CMD_REXEC=bs-exec.sh
+#############################
+
+##########  args ##########
+GOTO="$1"
+CMD="$2"
+
+# host file is please in 'the current real' path
+host_file=$(pwd -P)/hosts.example
+target=".*"
+
+prompt()
+{
+    echo -n "shell> "
+}
+
+GetCmd()
+{
+    echo 'Welcome to Batch-SSH. Commands end with ";"'
+    echo 'Press CTRL + d or Type "q" to exit.'
+
+    prompt
+    cmds=""
+    while read line
+    do
+        if [ -z "$line" ] ; then
+            cmds=""
+            prompt
+            continue
+        fi
+
+        # show help
+        if [ "$line" = "h" ] ; then
+            echo "l        : list the current host."
+            echo "g <host> : go to <host>."
+            echo "h        : show this help message."
+            cmds=""
+            prompt
+            continue
+        fi
+
+        # quit
+        if [ "$line" = "q" ] ; then
+            break
+        fi
+
+        # list host
+        if [ "$line" = "l" ] ; then
+            cat "$host_file"
+            cmds=""
+            prompt
+            continue
+        fi
+
+        # goto host
+        if [ "${line:0:1}" = "g" ] ; then
+            host=${line:2}
+            go $host
+            prompt
+            continue
+        fi
+    
+        # run local-command
+        if [ ${line:0:1} = "!" ] ; then
+            eval ${line:1}
+            prompt
+            continue
+        fi
+        
+        # run remote-command
+        if [ ! -z ${line##*[^;]} ] ; then
+            cmds=$(echo "$cmds$line"|tr -s "\;")
+            ExeCmd "$cmds" 
+            cmds=""
+        else
+            cmds="$cmds$line;"
+        fi
+        prompt
+    done
+
+    echo Bye
+}
+
+go()
+{
+    host="$1"
+    echo "now go to '$host'"
+    eval $(grep $host "$host_file" | awk '{printf("ip=%s;port=%s;user=%s;pass=%s;cmd=\"%s\"",$2,$3,$4,$5,$6)}')
+    if [ -z "$ip" ] ; then
+        echo "host '$host' not found."
+    else
+        echo ip=$ip, port=$port, user=$user, pass=$pass, cmd=$cmd
+        $CMD_GO $ip $port $user $pass "$cmd"
+    fi
+}
+
+ExeCmd()
+{
+    cmds="$1"
+    echo "Running \`$cmds\`, Please wait ..."
+    
+    grep -v '^#' "$host_file" | grep -v "^[ \t]*$" |grep "$target" |
+    while read name ip port user pass cmd
+    do
+        echo "==============display from $name [$ip] begin========================="
+        $CMD_REXEC $ip $port $user "$pass" "$cmds"
+        echo "==============display from $name [$ip] end=========================="
+        echo -e "\n\n"
+    done
+    echo "Finish \`$cmds\`."
+}
+
+if [ ! -z "$GOTO" ]
+then
+    go "$GOTO" "$CMD"
+else
+    GetCmd
+fi
+
+
