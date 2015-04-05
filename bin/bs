@@ -1,24 +1,20 @@
 #!/bin/bash
 
-##########  settting #########
-CMD_GO=bs-go.sh
-CMD_REXEC=bs-exec.sh
-#############################
-
-##########  args ##########
-GOTO="$1"
-CMD="$2"
-
-# host file is please in 'the current real' path
-host_file=$(pwd -P)/hosts.example
+here="$(dirname $0)"
+hostfile="$1"
 target=".*"
+
+if [ ! -s "$hostfile" ] ; then
+    echo "host file not found, file:[$hostfile]"
+    exit 1
+fi
 
 prompt()
 {
     echo -n "shell> "
 }
 
-GetCmd()
+main()
 {
     echo 'Welcome to Batch-SSH. Commands end with ";"'
     echo 'Press CTRL + d or Type "q" to exit.'
@@ -34,32 +30,42 @@ GetCmd()
         fi
 
         # show help
-        if [ "$line" = "h" ] ; then
-            echo "l        : list the current host."
-            echo "g <host> : go to <host>."
-            echo "h        : show this help message."
+        if [ "$line" = "help" ] ; then
+            echo "ls         : list the current host config."
+            echo "go  <host> : go to <host>."
+            echo "cls        : clear the screen."
+            echo "quit       : exit bs."
+            echo "help       : show this help message."
+            cmds=""
+            prompt
+            continue
+        fi
+
+        # clear screen
+        if [ "$line" = "cls" ] ; then
+            clear
             cmds=""
             prompt
             continue
         fi
 
         # quit
-        if [ "$line" = "q" ] ; then
+        if [ "$line" = "quit" ] ; then
             break
         fi
 
         # list host
-        if [ "$line" = "l" ] ; then
-            cat "$host_file"
+        if [ "$line" = "ls" ] ; then
+            cat "$hostfile"
             cmds=""
             prompt
             continue
         fi
 
         # goto host
-        if [ "${line:0:1}" = "g" ] ; then
-            host=${line:2}
-            go $host
+        if [ "${line:0:2}" = "go" ] ; then
+            host=${line:3}
+            goto $host
             prompt
             continue
         fi
@@ -74,7 +80,7 @@ GetCmd()
         # run remote-command
         if [ ! -z ${line##*[^;]} ] ; then
             cmds=$(echo "$cmds$line"|tr -s "\;")
-            ExeCmd "$cmds" 
+            run "$cmds" 
             cmds=""
         else
             cmds="$cmds$line;"
@@ -85,40 +91,35 @@ GetCmd()
     echo Bye
 }
 
-go()
+goto()
 {
     host="$1"
     echo "now go to '$host'"
-    eval $(grep $host "$host_file" | awk '{printf("ip=%s;port=%s;user=%s;pass=%s;cmd=\"%s\"",$2,$3,$4,$5,$6)}')
+    eval $(grep -v '^#' "$hostfile" | grep $host | head -n1 | awk -F'\t' '{printf("ip=%s;port=%s;user=%s;pass=%s",$2,$3,$4,$5)}')
+    cmd="$(grep -v '^#' "$hostfile" | grep $host | head -n1 | awk -F'\t' '{print $6}')"
     if [ -z "$ip" ] ; then
         echo "host '$host' not found."
     else
-        echo ip=$ip, port=$port, user=$user, pass=$pass, cmd=$cmd
-        $CMD_GO $ip $port $user $pass "$cmd"
+        $here/bs-go.sh $ip $port $user $pass "$cmd"
     fi
 }
 
-ExeCmd()
+run()
 {
     cmds="$1"
     echo "Running \`$cmds\`, Please wait ..."
     
-    grep -v '^#' "$host_file" | grep -v "^[ \t]*$" |grep "$target" |
+    grep -v '^#' "$hostfile" | grep -v "^[ \t]*$" | grep "$target" |
     while read name ip port user pass cmd
     do
         echo "==============display from $name [$ip] begin========================="
-        $CMD_REXEC $ip $port $user "$pass" "$cmds"
+        $here/bs-exec.sh $ip $port $user "$pass" "$cmds"
         echo "==============display from $name [$ip] end=========================="
         echo -e "\n\n"
     done
     echo "Finish \`$cmds\`."
 }
 
-if [ ! -z "$GOTO" ]
-then
-    go "$GOTO" "$CMD"
-else
-    GetCmd
-fi
+main
 
 

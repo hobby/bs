@@ -1,12 +1,21 @@
 #!/usr/bin/expect --
+
+#
+# brief: ssh to host@port with user and pass, then
+#        execute one cmd and exit;
+#
+# author: Hobby @ 2015.04
+#
+
 set HOST     [lindex $argv 0]
 set PORT     [lindex $argv 1]
 set USER     [lindex $argv 2]
 set PASS     [lindex $argv 3]
-set CMD	     [lindex $argv 4]
+set COMMAND  [lindex $argv 4]
 
-spawn -noecho ssh -q $USER@$HOST -p$PORT 
+spawn -noecho ssh $USER@$HOST -p$PORT "$COMMAND"
 
+# wait for command finish.
 set timeout -1
 
 expect {
@@ -31,9 +40,4 @@ expect {
         send "$PASS\n"
     }
 }
-
-# expect or not expect is the same, so...
-#expect "*$" 
-send "$CMD\n"
-interact  
-
+expect eof
