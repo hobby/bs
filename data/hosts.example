@@ -1,0 +1,9 @@
+# 
+# example host for bs.
+# vim:noexpandtab
+# 
+# format:
+# name <tab> ip <tab> port <tab> username <tab> password [<tab> command]
+# 
+
+name	ip	port	username	password	echo "this is test"
